@@ -79,16 +79,19 @@ template <typename TDna, typename TSpec>
 int Mapper<TDna, TSpec>::createIndex2_MF()
 {
     std::cerr << ">[Creating index] \n";
-    createHIndex(genomes(), bin(), qIndex, _thread);
+    float ythredfrac = 0.8;
+    createHIndex(genomes(), bin(), qIndex, ythredfrac, _thread);
     return 0;
 }
 
 template <typename TDna, typename TSpec>
 inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
                         typename PMRecord<TDna>::RecSeqs & read,
-                              MapParm & mapParm
+                        MapParm & mapParm,
+                        unsigned binNo
                              )
 {   
+    std::cerr << "[degbu]::binNO "<< binNo << "\n";
     double time = sysTime();
     typedef typename PMCore<TDna, TSpec>::Index TIndex;
     typedef typename TIndex::TShape PShape;
@@ -97,45 +100,44 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
     PShape shape;
     unsigned step = 1;
     uint64_t xpre = 0;
+    unsigned ysthred = 0;
     seqan::resize(list, length(read));
+    String<unsigned> score; //(binNo);
+    resize (score, binNo, 0);
     for (unsigned j = 0; j < length(read); j++)
     {
-    //printf("\nk=%d \n", j);
-    hashInit(shape, begin(read[j]));
-    for (unsigned k = 0; k < length(read[j]) - shape.span + 1; k++)
-    {
-        hashNext(shape, begin(read[j]) + k);
-        //printf("[] %d \n", shape.YValue);
-        uint64_t pre = ~0;
-        uint64_t ypre = 0;
-        if (++dt == step)
+        hashInit(shape, begin(read[j]));
+        for (unsigned k = 0; k < length(read[j]) - shape.span + 1; k++)
         {
-            //if(hashNextX(shape, begin(read[j]) + k) ^ xpre)
-            //if (shape.XValue ^ xpre)
-            //{
-                xpre = shape.XValue;
+            hashNext(shape, begin(read[j]) + k);
+            //printf("[] %d \n", shape.YValue);
+            uint64_t pre = ~0;
+            uint64_t ypre = 0;
+            if (++dt == step)
+            {
                 uint64_t pos = getXDir(index, shape.XValue, shape.YValue);
-            
-            
-            //    if (_DefaultHs.getHeadPtr(index.ysa[pos-1]) < mapParm.delta)
-             //   {
-                    while (_DefaultHs.isBody(index.ysa[pos]))
+                while (_DefaultHs.isBody(index.ysa[pos]))
+                {
+                    if (_DefaultHs.getHsBodyY(index.ysa[pos]) == shape.YValue)
                     {
-                        if (_DefaultHs.getHsBodyY(index.ysa[pos]) == shape.YValue)// && ypre != index.ysa[pos])
-                            //printf("[] %d %d %d %d\n", _DefaultHs.getHsBodyY(index.ysa[pos]), shape.YValue, _DefaultHs.getHsBodyS(index.ysa[pos]), pos);
-                        appendValue(list[j], _DefaultHs.getHsBodyS(index.ysa[pos]));
-                        //ypre = index.ysa[pos];
-                        ++pos;
+                        score[_DefaultHs.getHsBodyS(index.ysa[pos])]++;
                     }
-                    //printf("\n");
-             //   }
-            //}
-            dt = 0;
+                    ++pos;
+                }
+                dt = 0;
+            }
+            
         }
-        
+        for (unsigned k = 0; k < length(score); k++)
+        {
+            if (score[k] > ysthred)
+            {
+                appendValue(list[j], k);
+            }
+            score[k] = 0;
+        }
     }
-}
-    std::cerr << sysTime() - time << "[s] mapping";
+    std::cerr << sysTime() - time << "[s] mapping\n";
     for (unsigned k = 0; k < length(list); k++)
     {
         std::cout << "k=" << k << "\n";
@@ -164,7 +166,7 @@ int map(Mapper<TDna, TSpec> & mapper)
     readRecords(mapper.readsId(), mapper.reads(), rFile);//, blockSize);
     std::cerr << ">end reading " <<sysTime() - time << "[s]" << std::endl;
     std::cerr << ">mapping " << length(mapper.reads()) << " reads to reference genomes"<< std::endl;
-    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.mapParm());
+    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.mapParm(), length(mapper.bin()));
 
     return 0;
 }

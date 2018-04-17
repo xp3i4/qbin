@@ -2926,7 +2926,7 @@ bool _createYSA(String<uint64_t> & hs, XString & xstr, uint64_t & indexEmptyDir,
  * this function is for index only collecting minihash value [minindex]
  */
 template <unsigned TSPAN, unsigned TWEIGHT>
-bool _createYSA(String<uint64_t> & hs, XString & xstr, uint64_t & indexEmptyDir, unsigned threads)
+bool _createYSA(String<uint64_t> & hs, XString & xstr, uint64_t & indexEmptyDir, float ythred,  unsigned threads)
 {
 
     uint64_t k = _DefaultHs.getHeadPtr(hs[0]);
@@ -3028,9 +3028,9 @@ bool _createYSA(String<uint64_t> & hs, XString & xstr, uint64_t & indexEmptyDir,
     _DefaultHs.setHsHead(hs[k - countMove], 0, 0);
     _DefaultHs.setHsHead(hs[k - countMove + 1], 0, 0);
 
+    std::cerr << "[debug]::ythread " << ythred << "\n";
     ptr = k = prek = countMove = 0;
     block_size = _DefaultHs.getHeadPtr(hs[0]);
-    unsigned ythred = 18;
     unsigned county = 0;
     while (_DefaultHs.getHeadPtr(hs[k]))
     {
@@ -3184,13 +3184,13 @@ uint64_t & indexEmptyDir, unsigned & threads)
 template <unsigned SHAPELEN>
 bool _createQGramIndexDirSA_parallel(StringSet<String<Dna5> > & seq, String<uint64_t> & bin,
 XString & xstr, String<uint64_t> & hs,  Shape<Dna5, Minimizer<SHAPELEN> > & shape, 
-uint64_t & indexEmptyDir, unsigned & threads)    
+uint64_t & indexEmptyDir, float & ythredfrac, unsigned & threads)    
 {
     typedef Shape<Dna5, Minimizer<SHAPELEN> > ShapeType;
     double time = sysTime();
     //_createHsArray2_MF(seq, hs, shape, threads);
     _createHsArray(seq, bin, hs, shape, threads);
-    _createYSA<LENGTH<ShapeType>::VALUE, WGHT<ShapeType>::VALUE>(hs, xstr, indexEmptyDir, threads);
+    _createYSA<LENGTH<ShapeType>::VALUE, WGHT<ShapeType>::VALUE>(hs, xstr, indexEmptyDir, ythredfrac * length(seq), threads);
     std::cerr << "  End creating Index Time[s]:" << sysTime() - time << " \n";
     return true; 
 }
@@ -3208,11 +3208,11 @@ String<uint64_t> & hs,  Shape<Dna5, Minimizer<SHAPELEN> > & shape, uint64_t & in
 }
 
 template <typename TDna, unsigned span>
-bool createHIndex(StringSet<String<TDna> > & seq, String<uint64_t> & bin, HIndex<span> & index, unsigned & threads)
+bool createHIndex(StringSet<String<TDna> > & seq, String<uint64_t> & bin, HIndex<span> & index, float ythredfrac, unsigned & threads)
 {
   //  if (threads > 1)
   //  {
-        return _createQGramIndexDirSA_parallel(seq, bin, index.xstr, index.ysa, index.shape, index.emptyDir, threads);
+        return _createQGramIndexDirSA_parallel(seq, bin, index.xstr, index.ysa, index.shape, index.emptyDir, ythredfrac, threads);
   //  }
   //  else 
   //  {
