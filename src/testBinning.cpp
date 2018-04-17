@@ -84,6 +84,17 @@ int Mapper<TDna, TSpec>::createIndex2_MF()
     return 0;
 }
 
+
+inline unsigned nonZero(uint64_t t)
+/*
+ *if t==0 returns 0; else return 1; 
+ */
+{
+    //return (t >> __builtin_ctzll(t)) & (1ULL);
+    return 1;
+}
+
+
 template <typename TDna, typename TSpec>
 inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
                         typename PMRecord<TDna>::RecSeqs & read,
@@ -98,6 +109,8 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
     StringSet<String <uint64_t> > list;
     unsigned dt = 0;
     PShape shape;
+    unsigned shw = shape.weight * 2 / 3;
+    uint64_t mask = (1ULL << shw) - 1;
     unsigned step = 1;
     uint64_t xpre = 0;
     unsigned ysthred = 0;
@@ -106,6 +119,11 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
     resize (score, binNo, 0);
     for (unsigned j = 0; j < length(read); j++)
     {
+        if(j % 50000 == 0)
+        {
+            std::cerr << j << "\n";
+        }
+        
         hashInit(shape, begin(read[j]));
         for (unsigned k = 0; k < length(read[j]) - shape.span + 1; k++)
         {
@@ -118,10 +136,15 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
                 uint64_t pos = getXDir(index, shape.XValue, shape.YValue);
                 while (_DefaultHs.isBody(index.ysa[pos]))
                 {
-                    if (_DefaultHs.getHsBodyY(index.ysa[pos]) == shape.YValue)
-                    {
-                        score[_DefaultHs.getHsBodyS(index.ysa[pos])]++;
-                    }
+                    uint64_t yv = _DefaultHs.getHsBodyY(index.ysa[pos]) ^ shape.YValue;
+                    score[_DefaultHs.getHsBodyS(index.ysa[pos])] += 
+                    1<<(nonZero(yv & mask) + nonZero((yv >> shw) & mask) + nonZero((yv >> (shw * 2)) & mask)<<1);
+                    /*
+                     * nonZero \in {0,1} 
+                     * sum = nonZero + nonZero + nonZero \in {0,1,2,3}
+                     * sum << 1 \in {1,2,4,8} 
+                     * score[] += (1<< (sum << 1) \in {2,4,16,256})
+                     */
                     ++pos;
                 }
                 dt = 0;

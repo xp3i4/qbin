@@ -89,6 +89,8 @@ public:
     THashValue crhValue;    //ReverseComplement
     THashValue XValue;     //minimizer 
     THashValue YValue;     //Y(h,x)
+    THashValue yv;
+    THashValue cryv;
     THashValue strand;
     int  leftChar;
     int x;
@@ -100,6 +102,8 @@ public:
         crhValue(0),
         XValue(0),
         YValue(0),
+        yv(0),
+        cryv(0),
         strand(0),
         leftChar(0),
         x(0)
@@ -306,6 +310,7 @@ inline uint64_t hashInit(Shape<Dna5, Minimizer<TSPAN, TWEIGHT, TSpec> > &me, TIt
         //me.hValue = ordValue(*it);
         me.hValue = 0;
         me.crhValue = 0;
+        me.yv = me.cryv = 0;
         //hash_key = ((uint64_t)1 << (me.span*2 -2 )) - 1;
         //hash_key3 = ((uint64_t)1 << (me.span*2 )) - 1;
         me.leftChar = 0;
@@ -331,6 +336,13 @@ inline uint64_t hashInit(Shape<Dna5, Minimizer<TSPAN, TWEIGHT, TSpec> > &me, TIt
             me.crhValue += ((COMP4 - val) << bit);
             bit += 2;
             
+        }
+        bit = 2;
+        for (unsigned i = me.span; i < me.span + me.weight - 1; i++)
+        {
+            me.yv = (me.yv << 2) + ordValue (*(it + i));
+            me.cryv += ((COMP4 - ordValue(*(it + i))) << bit);
+            bit += 2;
         }
         //}
         return k;
@@ -511,6 +523,8 @@ hashNext(Shape<TValue, Minimizer<TSPAN, TWEIGHT, TSpec> > &me, TIter const &it)
     me.hValue=((me.hValue & MASK<TSPAN * 2 - 2>::VALUE)<<2)+ v2;
     me.crhValue=((me.crhValue >> 2) & MASK<TSPAN * 2 - 2>::VALUE) + 
                 ((COMP4 - v2) << (span - 2));
+    me.yv = ((me.yv << 2) & MASK<TWEIGHT * 2>::VALUE) + ordValue((TValue)*(it + TSPAN + TWEIGHT - 1));
+    me.cryv = (me.cryv >> 2) + ((COMP4 - ordValue((TValue)*(it + TSPAN + TWEIGHT))) << weight);
     me.XValue = MASK<TSPAN * 2>::VALUE; 
     me.x += (v2 - me.leftChar) << 1;
     me.leftChar = ordValue(*(it));
@@ -520,11 +534,14 @@ hashNext(Shape<TValue, Minimizer<TSPAN, TWEIGHT, TSpec> > &me, TIter const &it)
     {
         v2 =me.hValue; 
         me.strand = 0;
+        me.YValue = me.yv;
     }
     else 
     {
         v2 = me.crhValue;
         me.strand = 1;
+        me.YValue = (me.YValue << 2) + ordValue((TValue)*(it + 40));
+        me.YValue = me.cryv;
     }
     
     for (unsigned k = 64-span; k <= 64 - weight; k+=2)
@@ -536,9 +553,9 @@ hashNext(Shape<TValue, Minimizer<TSPAN, TWEIGHT, TSpec> > &me, TIter const &it)
             t = k;
         }
     } 
-        me.YValue = (v2 >> (64-t) << (64-t-weight)) +
-                (v2 & ((1ULL<<(64-t-weight)) - 1)) + 
-                (t << (span - weight - 1));
+ //       me.YValue = (v2 >> (64-t) << (64-t-weight)) +
+ //               (v2 & ((1ULL<<(64-t-weight)) - 1)) + 
+ //               (t << (span - weight - 1));
     return me.XValue; 
 }
 
@@ -594,9 +611,10 @@ hashNextX(Shape<TValue, Minimizer<TSPAN, TWEIGHT, TSpec> > &me, TIter const &it)
             t = k;
         }
     } 
-        me.YValue = (v2 >> (64-t) << (64-t-weight)) +
-                (v2 & ((1ULL<<(64-t-weight)) - 1)) + 
-                (t << (span - weight - 1));
+//        me.YValue = (v2 >> (64-t) << (64-t-weight)) +
+//                (v2 & ((1ULL<<(64-t-weight)) - 1)) + 
+//                (t << (span - weight - 1));
+        
     return me.XValue; 
 }
 
