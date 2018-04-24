@@ -71,7 +71,8 @@ template <typename TDna, typename TSpec>
 int Mapper<TDna, TSpec>::createIndex()
 {
     std::cerr << ">[Creating index] \n";
-    createHIndex(genomes(), qIndex, _thread);
+    float ythredfrac = 0.8;
+    createHIndex(genomes(), bin(), qIndex, ythredfrac, _thread);
     return 0;
 }
 
@@ -80,7 +81,7 @@ int Mapper<TDna, TSpec>::createIndex2_MF()
 {
     std::cerr << ">[Creating index] \n";
     float ythredfrac = 0.8;
-    createHIndex(genomes(), bin(), qIndex, ythredfrac, _thread);
+    createHIndex2_MF(genomes(), bin(), qIndex, ythredfrac, _thread);
     return 0;
 }
 
@@ -169,9 +170,8 @@ int map(Mapper<TDna, TSpec> & mapper)
 {
     //printStatus();
     omp_set_num_threads(mapper.thread());
-    StringSet<String<int> > f2;
     //mapper.createIndex(); // true for parallel 
-    mapper.createIndex2_MF(); // this function will destroy genomes string during the creation to reduce memory footprint
+    mapper.createIndex(); 
     SeqFileIn rFile(toCString(mapper.readPath()));
     
     
@@ -180,7 +180,6 @@ int map(Mapper<TDna, TSpec> & mapper)
     readRecords(mapper.readsId(), mapper.reads(), rFile);//, blockSize);
     std::cerr << ">end reading " <<sysTime() - time << "[s]" << std::endl;
     std::cerr << ">mapping " << length(mapper.reads()) << " reads to reference genomes"<< std::endl;
-    //testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), mapper.mapParm(), length(mapper.bin()), mapper.thread());
     testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), length(mapper.bin()), mapper.thread());
     
     std::cerr << ">writing result to disk \n";

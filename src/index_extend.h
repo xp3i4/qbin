@@ -1941,7 +1941,7 @@ bool _createHsArray(StringSet<String<Dna5> > const & seq, String<uint64_t> & hs,
  * state::warnning. for seq contains 'N', error. since the k in openmp doesn't change correctly
  */
 template <unsigned SHAPELEN>
-bool _createHsArray(StringSet<String<Dna5> > const & seq, String<uint64_t> & bin, String<uint64_t> & hs, Shape<Dna5, Minimizer<SHAPELEN> > & shape, unsigned & threads)
+bool _createHsArray(StringSet<String<Dna5> > & seq, String<uint64_t> & bin, String<uint64_t> & hs, Shape<Dna5, Minimizer<SHAPELEN> > & shape, unsigned & threads, bool memoryEfficient = false)
 {
     std::cerr << "[prallel createHsArray]\n";
     double time = sysTime();
@@ -2039,12 +2039,17 @@ bool _createHsArray(StringSet<String<Dna5> > const & seq, String<uint64_t> & bin
     resize (hs, hsRealEnd + 1);
     //shrinkToFit(hs);
     _DefaultHs.setHsHead(hs[hsRealEnd], 0, 0);
+    
     std::cerr << "[debug] length of hs " << length(hs) << " " << hsRealEnd << "\n";
     std::cerr << "      init Time[s]" << sysTime() - time << " " << std::endl;
 //-k
+    if (memoryEfficient)
+    {
+        clear(seq);
+        shrinkToFit(seq);    
+    }
     _hsSort(begin(hs), begin(hs) + hsRealEnd, shape.weight, threads);
     //_hsSort(begin(hs) + start, begin(hs) + count, shape.weight);
-    
     std::cerr << "      End createHsArray " << std::endl;
     return true;
 }
@@ -2954,9 +2959,10 @@ uint64_t & indexEmptyDir, float & ythredfrac, unsigned & threads)
 {
     typedef Shape<Dna5, Minimizer<SHAPELEN> > ShapeType;
     double time = sysTime();
+    float ythred = ythredfrac * length(seq);
     //_createHsArray2_MF(seq, bin, hs, shape, threads);
-    _createHsArray(seq, bin, hs, shape, threads);
-    _createYSA<LENGTH<ShapeType>::VALUE, WGHT<ShapeType>::VALUE>(hs, xstr, indexEmptyDir, ythredfrac * length(seq), threads);
+    _createHsArray(seq, bin, hs, shape, threads, true); //!Note delte seq when it set true
+    _createYSA<LENGTH<ShapeType>::VALUE, WGHT<ShapeType>::VALUE>(hs, xstr, indexEmptyDir, ythred, threads);
     std::cerr << "  End creating Index Time[s]:" << sysTime() - time << " \n";
     return true; 
 }
