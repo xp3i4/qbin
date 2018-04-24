@@ -85,52 +85,48 @@ int Mapper<TDna, TSpec>::createIndex2_MF()
 }
 
 
-inline unsigned nonZero(uint64_t t)
-/*
- *if t==0 returns 0; else return 1; 
- */
-{
-    //return (t >> __builtin_ctzll(t)) & (1ULL);
-    return 1;
-}
-
-
 template <typename TDna, typename TSpec>
 inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
-                        typename PMRecord<TDna>::RecSeqs & read,
+                        typename PMRecord<TDna>::RecSeqs & reads,
+                        StringSet<String<uint64_t> > & list,
                         MapParm & mapParm,
-                        unsigned binNo
+                        unsigned binNo,
+                        unsigned threads
                              )
 {   
     std::cerr << "[degbu]::binNO "<< binNo << "\n";
     double time = sysTime();
+    unsigned step = 1;
     typedef typename PMCore<TDna, TSpec>::Index TIndex;
     typedef typename TIndex::TShape PShape;
-    StringSet<String <uint64_t> > list;
-    unsigned dt = 0;
-    PShape shape;
-    unsigned shw = shape.weight * 2 / 3;
-    uint64_t mask = (1ULL << shw) - 1;
-    unsigned step = 1;
-    uint64_t xpre = 0;
     unsigned ysthred = 0;
-    seqan::resize(list, length(read));
+    std::cerr << "[debug] " << threads << "\n";
+#pragma omp parallel
+{
+    PShape shape;
+    unsigned dt = 0;
     String<unsigned> score; //(binNo);
     resize (score, binNo, 0);
-    for (unsigned j = 0; j < length(read); j++)
+    StringSet<String<uint64_t> > tmpRslt;
+    unsigned size2 = length(reads) / threads;
+    unsigned ChunkSize = size2;
+
+    unsigned thd_id =  omp_get_thread_num();
+    if (thd_id < length(reads) - size2 * threads)
     {
-        if(j % 50000 == 0)
+        ChunkSize = size2 + 1;
+    }
+    resize(tmpRslt, ChunkSize);
+    unsigned c = 0;
+    
+#pragma omp for 
+    for (unsigned j = 0; j < length(reads); j++)
+    {
+        hashInit(shape, begin(reads[j]));
+        for (unsigned k = 0; k < length(reads[j]) - shape.span + 1; k++)
         {
-            std::cerr << j << "\n";
-        }
-        
-        hashInit(shape, begin(read[j]));
-        for (unsigned k = 0; k < length(read[j]) - shape.span + 1; k++)
-        {
-            hashNext(shape, begin(read[j]) + k);
-            //printf("[] %d \n", shape.YValue);
-            uint64_t pre = ~0;
-            uint64_t ypre = 0;
+            hashNext(shape, begin(reads[j]) + k);
+
             if (++dt == step)
             {
                 uint64_t pos = getXDir(index, shape.XValue, shape.YValue);
@@ -155,20 +151,20 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
         {
             if (score[k] > ysthred)
             {
-                appendValue(list[j], k);
+                appendValue(tmpRslt[c], k);
             }
             score[k] = 0;
         }
+        c += 1;
     }
-    std::cerr << sysTime() - time << "[s] mapping\n";
-    for (unsigned k = 0; k < length(list); k++)
+#pragma omp for ordered
+    for (unsigned j = 0; j < threads; j++)
+#pragma omp ordered
     {
-        std::cout << "k=" << k << "\n";
-        for (unsigned j = 0; j < length(list[k]); j++)
-        {
-            std::cout << list[k][j] << " ";
-        }
+        append(list, tmpRslt);
     }
+    
+}
     return 0;
 }
 
@@ -189,7 +185,17 @@ int map(Mapper<TDna, TSpec> & mapper)
     readRecords(mapper.readsId(), mapper.reads(), rFile);//, blockSize);
     std::cerr << ">end reading " <<sysTime() - time << "[s]" << std::endl;
     std::cerr << ">mapping " << length(mapper.reads()) << " reads to reference genomes"<< std::endl;
-    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.mapParm(), length(mapper.bin()));
+    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), mapper.mapParm(), length(mapper.bin()), mapper.thread());
+    
+    for (unsigned k = 0; k < length(mapper.rslt()); k++)
+    {
+        mapper.of_stream() << "read " << k << " ";
+        for (unsigned j = 0; j < length(mapper.rslt()[k]); j++)
+        {
+            mapper.of_stream() << mapper.rslt()[k][j] << " ";
+        }
+        mapper.of_stream() << "\n";
+    }
 
     return 0;
 }
