@@ -113,7 +113,7 @@ struct Options{
         MiKmLen(Const_::_SHAPEWHT),
         rPath(""),
         //gPath(""),
-        oPath("mapper_result.txt"),
+        oPath("result.txt"),
         Sensitive(false),
         sensitivity(0),
         thread(4)

@@ -52,6 +52,7 @@ class Mapper {
     typedef typename Base::MSeqs     Seqs;
     typedef typename Res::HitSet    HitSet;
     typedef typename Res::HitType   HitType; 
+    typedef StringSet<String<uint64_t> > Rst;
 
     Record  record;
     Parm    parm;
@@ -59,6 +60,7 @@ class Mapper {
     Index   qIndex;
     std::ofstream of;
     unsigned _thread;
+    Rst rst;
 
 public:
     Mapper();
@@ -82,6 +84,8 @@ public:
     StringSet<CharString> & readsId(){return record.id1;}
     StringSet<CharString> & genomesId(){return record.id2;}
     String<uint64_t>  & bin(){return record.bin;}
+    Rst & rslt(){return rst;}
+    std::ofstream & of_stream() {return of;}
     
 };
 
