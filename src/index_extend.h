@@ -1801,7 +1801,7 @@ inline bool _hsSortX(TIt const & begin, TIt const & end, unsigned const & xValBi
     //_hsSortX(begin, end, xValBitLen);
     _hsSortX_1(begin, end, xValBitLen, threads);
     //_hsSortX_2(begin, end, xValBitLen, threads);
-
+    return true;
 }
 
 template <typename TIter>//, typename Comp>
@@ -1941,7 +1941,7 @@ bool _createHsArray(StringSet<String<Dna5> > const & seq, String<uint64_t> & hs,
  * state::warnning. for seq contains 'N', error. since the k in openmp doesn't change correctly
  */
 template <unsigned SHAPELEN>
-bool _createHsArray(StringSet<String<Dna5> > const & seq, String<uint64_t> & bin, String<uint64_t> & hs, Shape<Dna5, Minimizer<SHAPELEN> > & shape, unsigned & threads, bool raw = true)
+bool _createHsArray(StringSet<String<Dna5> > const & seq, String<uint64_t> & bin, String<uint64_t> & hs, Shape<Dna5, Minimizer<SHAPELEN> > & shape, unsigned & threads)
 {
     std::cerr << "[prallel createHsArray]\n";
     double time = sysTime();
@@ -2908,7 +2908,7 @@ bool _createYSA(String<uint64_t> & hs, XString & xstr, uint64_t & indexEmptyDir,
 #pragma omp parallel 
 {
     //uint64_t thd_id = omp_get_thread_num();
-    uint64_t ptr = 0;
+    //uint64_t ptr = 0;
 
 #pragma omp for 
     for (uint64_t m = 0; m < length(hs); m++)
@@ -2916,7 +2916,7 @@ bool _createYSA(String<uint64_t> & hs, XString & xstr, uint64_t & indexEmptyDir,
 
         if (_DefaultHs.isHead(hs[m]) && _DefaultHs.getHeadPtr(hs[m]))
         {
-            ptr = _DefaultHs.getHeadPtr(hs[m]);
+            //ptr = _DefaultHs.getHeadPtr(hs[m]);
             requestXNode_noCollision_Atomic(xstr, _DefaultHs.getHeadX(hs[m]), 
                        m + 1, _DefaultXNodeBase.xHead, _DefaultXNodeBase.returnDir);
         }

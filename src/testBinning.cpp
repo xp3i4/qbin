@@ -89,7 +89,7 @@ template <typename TDna, typename TSpec>
 inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
                         typename PMRecord<TDna>::RecSeqs & reads,
                         StringSet<String<uint64_t> > & list,
-                        MapParm & mapParm,
+//                        MapParm & mapParm,
                         unsigned binNo,
                         unsigned threads
                              )
@@ -100,7 +100,7 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
     typedef typename PMCore<TDna, TSpec>::Index TIndex;
     typedef typename TIndex::TShape PShape;
     unsigned ysthred = 0;
-    std::cerr << "[debug] " << threads << "\n";
+    //std::cerr << "[debug] " << threads << "\n";
 #pragma omp parallel
 {
     PShape shape;
@@ -132,15 +132,10 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
                 uint64_t pos = getXDir(index, shape.XValue, shape.YValue);
                 while (_DefaultHs.isBody(index.ysa[pos]))
                 {
-                    uint64_t yv = _DefaultHs.getHsBodyY(index.ysa[pos]) ^ shape.YValue;
-                    score[_DefaultHs.getHsBodyS(index.ysa[pos])] += 
-                    1<<(nonZero(yv & mask) + nonZero((yv >> shw) & mask) + nonZero((yv >> (shw * 2)) & mask)<<1);
-                    /*
-                     * nonZero \in {0,1} 
-                     * sum = nonZero + nonZero + nonZero \in {0,1,2,3}
-                     * sum << 1 \in {1,2,4,8} 
-                     * score[] += (1<< (sum << 1) \in {2,4,16,256})
-                     */
+                    if (_DefaultHs.getHsBodyY(index.ysa[pos]) == shape.YValue)
+                    {
+                        score[_DefaultHs.getHsBodyS(index.ysa[pos])] += 1;
+                    }
                     ++pos;
                 }
                 dt = 0;
@@ -163,8 +158,8 @@ inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
     {
         append(list, tmpRslt);
     }
-    
 }
+std::cerr << ">mapping[s] " << sysTime() - time << "\n";
     return 0;
 }
 
@@ -185,11 +180,13 @@ int map(Mapper<TDna, TSpec> & mapper)
     readRecords(mapper.readsId(), mapper.reads(), rFile);//, blockSize);
     std::cerr << ">end reading " <<sysTime() - time << "[s]" << std::endl;
     std::cerr << ">mapping " << length(mapper.reads()) << " reads to reference genomes"<< std::endl;
-    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), mapper.mapParm(), length(mapper.bin()), mapper.thread());
+    //testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), mapper.mapParm(), length(mapper.bin()), mapper.thread());
+    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), length(mapper.bin()), mapper.thread());
     
+    std::cerr << ">writing result to disk \n";
     for (unsigned k = 0; k < length(mapper.rslt()); k++)
     {
-        mapper.of_stream() << "read " << k << " ";
+        mapper.of_stream() << "read_" << k << " ";
         for (unsigned j = 0; j < length(mapper.rslt()[k]); j++)
         {
             mapper.of_stream() << mapper.rslt()[k][j] << " ";
@@ -259,8 +256,8 @@ parseCommandLine(Options & options, int argc, char const ** argv)
 
     seqan::getArgumentValue(options.rPath, parser, 0);
     options.gPath = seqan::getArgumentValues(parser, 1);
-    for (unsigned k = 0; k < length(options.gPath); k++)
-        std::cout << "[debug]::g " << " " << options.gPath[k] << std::endl;
+    //for (unsigned k = 0; k < length(options.gPath); k++)
+    //    std::cout << "[debug]::g " << " " << options.gPath[k] << std::endl;
 
     return seqan::ArgumentParser::PARSE_OK;
 
@@ -270,7 +267,7 @@ int main(int argc, char const ** argv)
 {
     double time = sysTime();
 
-    std::cerr << "Encapsulated version: Mapping reads efficiently" << std::endl;
+    std::cerr << "Encapsulated version: Binning by q-gram index" << std::endl;
     (void)argc;
     // Parse the command line.
     Options options;
