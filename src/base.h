@@ -113,7 +113,7 @@ struct Options{
         MiKmLen(Const_::_SHAPEWHT),
         rPath(""),
         //gPath(""),
-        oPath("mapper_result.txt"),
+        oPath("result.txt"),
         Sensitive(false),
         sensitivity(0),
         thread(4)
@@ -480,7 +480,7 @@ int PMRecord<TDna>::loadRecord(Options & options)
 {
     double time = sysTime();
     unsigned preSize = 0;
-    std::cerr <<"loading sequences from files \r";
+    std::cerr <<">reading sequences from files \n";
     clear(seq2);
     clear(bin);
     std::cerr << "[debug]::length gpath " << length(options.gPath) << "\n";
@@ -519,6 +519,7 @@ inline void Anchors::init(int length)
 {
     clear(set);
     seqan::appendValue(set, 0);
+    (void)length;
 }
 
 inline void Anchors::init()

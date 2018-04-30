@@ -71,7 +71,8 @@ template <typename TDna, typename TSpec>
 int Mapper<TDna, TSpec>::createIndex()
 {
     std::cerr << ">[Creating index] \n";
-    createHIndex(genomes(), qIndex, _thread);
+    float ythredfrac = 0.8;
+    createHIndex(genomes(), bin(), qIndex, ythredfrac, _thread);
     return 0;
 }
 
@@ -79,71 +80,87 @@ template <typename TDna, typename TSpec>
 int Mapper<TDna, TSpec>::createIndex2_MF()
 {
     std::cerr << ">[Creating index] \n";
-    createHIndex(genomes(), bin(), qIndex, _thread);
+    float ythredfrac = 0.8;
+    createHIndex2_MF(genomes(), bin(), qIndex, ythredfrac, _thread);
     return 0;
 }
 
+
 template <typename TDna, typename TSpec>
 inline unsigned testbin(typename PMCore<TDna, TSpec>::Index & index,
-                        typename PMRecord<TDna>::RecSeqs & read,
-                              MapParm & mapParm
+                        typename PMRecord<TDna>::RecSeqs & reads,
+                        StringSet<String<uint64_t> > & list,
+//                        MapParm & mapParm,
+                        unsigned binNo,
+                        unsigned threads
                              )
 {   
+    std::cerr << "[degbu]::binNO "<< binNo << "\n";
     double time = sysTime();
+    unsigned step = 1;
     typedef typename PMCore<TDna, TSpec>::Index TIndex;
     typedef typename TIndex::TShape PShape;
-    StringSet<String <uint64_t> > list;
-    unsigned dt = 0;
+    unsigned ysthred = 0;
+    //std::cerr << "[debug] " << threads << "\n";
+#pragma omp parallel
+{
     PShape shape;
-    unsigned step = 1;
-    uint64_t xpre = 0;
-    seqan::resize(list, length(read));
-    for (unsigned j = 0; j < length(read); j++)
+    unsigned dt = 0;
+    String<unsigned> score; //(binNo);
+    resize (score, binNo, 0);
+    StringSet<String<uint64_t> > tmpRslt;
+    unsigned size2 = length(reads) / threads;
+    unsigned ChunkSize = size2;
+
+    unsigned thd_id =  omp_get_thread_num();
+    if (thd_id < length(reads) - size2 * threads)
     {
-    //printf("\nk=%d \n", j);
-    hashInit(shape, begin(read[j]));
-    for (unsigned k = 0; k < length(read[j]) - shape.span + 1; k++)
+        ChunkSize = size2 + 1;
+    }
+    resize(tmpRslt, ChunkSize);
+    unsigned c = 0;
+    
+#pragma omp for 
+    for (unsigned j = 0; j < length(reads); j++)
     {
-        hashNext(shape, begin(read[j]) + k);
-        //printf("[] %d \n", shape.YValue);
-        uint64_t pre = ~0;
-        uint64_t ypre = 0;
-        if (++dt == step)
+        hashInit(shape, begin(reads[j]));
+        for (unsigned k = 0; k < length(reads[j]) - shape.span + 1; k++)
         {
-            //if(hashNextX(shape, begin(read[j]) + k) ^ xpre)
-            //if (shape.XValue ^ xpre)
-            //{
-                xpre = shape.XValue;
+            hashNext(shape, begin(reads[j]) + k);
+
+            if (++dt == step)
+            {
                 uint64_t pos = getXDir(index, shape.XValue, shape.YValue);
-            
-            
-            //    if (_DefaultHs.getHeadPtr(index.ysa[pos-1]) < mapParm.delta)
-             //   {
-                    while (_DefaultHs.isBody(index.ysa[pos]))
+                while (_DefaultHs.isBody(index.ysa[pos]))
+                {
+                    if (_DefaultHs.getHsBodyY(index.ysa[pos]) == shape.YValue)
                     {
-                        if (_DefaultHs.getHsBodyY(index.ysa[pos]) == shape.YValue)// && ypre != index.ysa[pos])
-                            //printf("[] %d %d %d %d\n", _DefaultHs.getHsBodyY(index.ysa[pos]), shape.YValue, _DefaultHs.getHsBodyS(index.ysa[pos]), pos);
-                        appendValue(list[j], _DefaultHs.getHsBodyS(index.ysa[pos]));
-                        //ypre = index.ysa[pos];
-                        ++pos;
+                        score[_DefaultHs.getHsBodyS(index.ysa[pos])] += 1;
                     }
-                    //printf("\n");
-             //   }
-            //}
-            dt = 0;
+                    ++pos;
+                }
+                dt = 0;
+            }
+            
         }
-        
+        for (unsigned k = 0; k < length(score); k++)
+        {
+            if (score[k] > ysthred)
+            {
+                appendValue(tmpRslt[c], k);
+            }
+            score[k] = 0;
+        }
+        c += 1;
+    }
+#pragma omp for ordered
+    for (unsigned j = 0; j < threads; j++)
+#pragma omp ordered
+    {
+        append(list, tmpRslt);
     }
 }
-    std::cerr << sysTime() - time << "[s] mapping";
-    for (unsigned k = 0; k < length(list); k++)
-    {
-        std::cout << "k=" << k << "\n";
-        for (unsigned j = 0; j < length(list[k]); j++)
-        {
-            std::cout << list[k][j] << " ";
-        }
-    }
+std::cerr << ">mapping[s] " << sysTime() - time << "\n";
     return 0;
 }
 
@@ -153,9 +170,8 @@ int map(Mapper<TDna, TSpec> & mapper)
 {
     //printStatus();
     omp_set_num_threads(mapper.thread());
-    StringSet<String<int> > f2;
     //mapper.createIndex(); // true for parallel 
-    mapper.createIndex2_MF(); // this function will destroy genomes string during the creation to reduce memory footprint
+    mapper.createIndex(); 
     SeqFileIn rFile(toCString(mapper.readPath()));
     
     
@@ -164,7 +180,18 @@ int map(Mapper<TDna, TSpec> & mapper)
     readRecords(mapper.readsId(), mapper.reads(), rFile);//, blockSize);
     std::cerr << ">end reading " <<sysTime() - time << "[s]" << std::endl;
     std::cerr << ">mapping " << length(mapper.reads()) << " reads to reference genomes"<< std::endl;
-    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.mapParm());
+    testbin<TDna, TSpec>(mapper.index(), mapper.reads(), mapper.rslt(), length(mapper.bin()), mapper.thread());
+    
+    std::cerr << ">writing result to disk \n";
+    for (unsigned k = 0; k < length(mapper.rslt()); k++)
+    {
+        mapper.of_stream() << "read_" << k << " ";
+        for (unsigned j = 0; j < length(mapper.rslt()[k]); j++)
+        {
+            mapper.of_stream() << mapper.rslt()[k][j] << " ";
+        }
+        mapper.of_stream() << "\n";
+    }
 
     return 0;
 }
@@ -228,8 +255,8 @@ parseCommandLine(Options & options, int argc, char const ** argv)
 
     seqan::getArgumentValue(options.rPath, parser, 0);
     options.gPath = seqan::getArgumentValues(parser, 1);
-    for (unsigned k = 0; k < length(options.gPath); k++)
-        std::cout << "[debug]::g " << " " << options.gPath[k] << std::endl;
+    //for (unsigned k = 0; k < length(options.gPath); k++)
+    //    std::cout << "[debug]::g " << " " << options.gPath[k] << std::endl;
 
     return seqan::ArgumentParser::PARSE_OK;
 
@@ -239,7 +266,7 @@ int main(int argc, char const ** argv)
 {
     double time = sysTime();
 
-    std::cerr << "Encapsulated version: Mapping reads efficiently" << std::endl;
+    std::cerr << "Encapsulated version: Binning by q-gram index" << std::endl;
     (void)argc;
     // Parse the command line.
     Options options;

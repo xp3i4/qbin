@@ -33,7 +33,7 @@
 // ==========================================================================
 
 #include "base.h"
-#include "pmpfinder.h"
+//#include "pmpfinder.h"
 #include "mapparm.h"
 
 #ifndef SEQAN_HEADER_PACMAPPER_H
@@ -50,18 +50,17 @@ class Mapper {
     typedef typename Base::MRes   Res;
     typedef typename Base::MSeq      Seq;
     typedef typename Base::MSeqs     Seqs;
-    typedef typename Cord::CordSet      CordSet;
-    typedef typename Cord::CordType CordType;
     typedef typename Res::HitSet    HitSet;
     typedef typename Res::HitType   HitType; 
+    typedef StringSet<String<uint64_t> > Rst;
 
     Record  record;
     Parm    parm;
     Res     res;
     Index   qIndex;
-    CordSet cordSet;
     std::ofstream of;
     unsigned _thread;
+    Rst rst;
 
 public:
     Mapper();
@@ -71,23 +70,11 @@ public:
     Parm & mapParm() {return parm;}
     Res & result() {return res;}
     Index & index() {return qIndex;}
-    HitSet & hits() {return res.hits;}             //returns hit set
-    Pair<HitType, HitType> getAliX(unsigned) const;
-    HitType getHitX (HitType const &) const;     //returns coordinates x,y of the hits 
-    HitType getHitY (HitType const &) const;     //type uint64_t
-    CordSet & cords() {return cordSet;}            //returns cord set 
-    CordType getCordX(CordType const &) const;   // returns coordinates x,y of the vertex of sliding window
-    CordType getCordY(CordType const &) const;   // type uint64_t 
     
     void printHits();
     void printBestHitsStart();
     void printResult();
     void printParm();
-    void printCords(std::ostream & );
-    void printCords();
-    void printCordsAll();
-    void printCordsRaw();
-    void printCordsRaw2();
     int createIndex();
     int createIndex2_MF();//destruct genomes string during the creation to reduce memory footprint
     unsigned sens(){return parm.sensitivity;}
@@ -97,6 +84,8 @@ public:
     StringSet<CharString> & readsId(){return record.id1;}
     StringSet<CharString> & genomesId(){return record.id2;}
     String<uint64_t>  & bin(){return record.bin;}
+    Rst & rslt(){return rst;}
+    std::ofstream & of_stream() {return of;}
     
 };
 
